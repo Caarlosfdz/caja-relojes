@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caja · Relojes</title>
+<style>
+  :root{
+    --bg:#0d1117;--soft:#151c26;--soft2:#1a2330;--line:#222c3a;--line-soft:#1a232f;
+    --text:#eaf0f7;--muted:#7d8da3;--green:#46d39a;--you:#6db8ff;--danger:#ef6e6e;--amber:#e2b04a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;padding:30px 18px 70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:540px;margin:0 auto}
+
+  /* PIN gate */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;z-index:50;padding:24px}
+  #gate h2{font-size:18px;font-weight:700}
+  #gate p{color:var(--muted);font-size:13px;margin-top:-10px}
+  #pinIn{width:160px;text-align:center;letter-spacing:.5em;font-size:26px;font-weight:700;
+    background:var(--soft);border:1px solid var(--line);color:var(--text);padding:12px;border-radius:12px;outline:none}
+  #pinIn:focus{border-color:var(--green)}
+  #gate button{background:var(--green);color:#06160e;border:none;font-weight:700;font-size:15px;
+    padding:12px 28px;border-radius:11px;cursor:pointer;font-family:inherit}
+  #pinErr{color:var(--danger);font-size:13px;height:16px}
+
+  .sync{position:fixed;top:10px;right:12px;font-size:11px;color:var(--muted);z-index:5}
+  .sync b{color:var(--green)}
+  .sync.saving b{color:var(--amber)}
+  .sync.err b{color:var(--danger)}
+
+  header{margin-bottom:20px}
+  .kicker{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  h1{font-size:23px;font-weight:700;letter-spacing:-.01em}
+
+  .tabs{display:flex;gap:7px;align-items:center;overflow-x:auto;padding:4px 0 12px;margin-bottom:4px;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none;background:var(--soft);border:1px solid var(--line);color:var(--muted);
+    font-size:13px;font-weight:600;padding:8px 14px;border-radius:20px;cursor:pointer;
+    font-family:inherit;white-space:nowrap;transition:.15s;user-select:none}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:rgba(70,211,154,.12);border-color:var(--green);color:var(--green)}
+  .tab.closed{opacity:.55}
+  .tab.closed.active{opacity:1;background:rgba(226,176,74,.12);border-color:var(--amber);color:var(--amber)}
+  .tab .lk{margin-right:5px;font-size:11px}
+  .tab.add{padding:8px 13px;font-size:16px;color:var(--muted)}
+  .tab.add:hover{color:var(--green);border-color:var(--green)}
+  .hint{font-size:11px;color:#465366;margin-bottom:16px}
+
+  .closed-banner{display:none;align-items:center;justify-content:space-between;gap:12px;
+    background:rgba(226,176,74,.08);border:1px solid rgba(226,176,74,.3);border-radius:11px;
+    padding:11px 15px;margin-bottom:18px;font-size:13px;color:var(--amber)}
+  body.is-closed .closed-banner{display:flex}
+  .closed-banner button{background:var(--amber);color:#1a1304;border:none;font-weight:700;
+    font-size:13px;padding:7px 14px;border-radius:8px;cursor:pointer;font-family:inherit}
+
+  .config{display:flex;gap:26px;flex-wrap:wrap;padding:18px 0;margin:0 0 22px;
+    border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .field .inp{display:flex;align-items:baseline;gap:3px}
+  .field input{width:74px;background:none;border:none;border-bottom:1px solid var(--line);
+    color:var(--text);font-size:21px;font-weight:600;padding:2px 0;outline:none;font-family:inherit}
+  .field input:focus{border-color:var(--green)}
+  .field input:disabled{color:var(--muted);border-color:transparent}
+  .field em{color:var(--muted);font-size:15px;font-style:normal}
+  .field small{color:var(--muted);font-size:11px}
+  .field small b{color:var(--you);font-weight:600}
+
+  .add{display:flex;gap:10px;margin-bottom:24px}
+  .add input{flex:1;background:var(--soft);border:1px solid var(--line);color:var(--text);
+    font-size:16px;padding:13px 15px;border-radius:11px;outline:none;font-family:inherit}
+  .add input::placeholder{color:var(--muted)}
+  .add input:focus{border-color:var(--green)}
+  .add input:disabled{opacity:.5}
+  .add button{border:none;background:var(--green);color:#06160e;font-weight:700;font-size:15px;
+    padding:0 20px;border-radius:11px;cursor:pointer;font-family:inherit;transition:.15s}
+  .add button:hover{background:#5ee0aa}
+  .add button:disabled{opacity:.4;cursor:not-allowed}
+  body.is-closed .add{display:none}
+
+  .list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .list-head h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .list-head .acts{display:flex;gap:14px}
+  .list-head button{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit;padding:4px}
+  .list-head button.close-btn:hover{color:var(--amber)}
+  .list-head button.del:hover{color:var(--danger)}
+  .list-head button.vac:hover{color:var(--danger)}
+  body.is-closed .vac{display:none}
+
+  .sale{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line-soft)}
+  .sale .n{color:var(--muted);font-size:12px;width:18px;flex:none;font-variant-numeric:tabular-nums}
+  .sale .venta{font-size:16px;font-weight:600;width:74px;flex:none;font-variant-numeric:tabular-nums}
+  .sale .split{flex:1;display:flex;gap:14px;font-size:13px;font-variant-numeric:tabular-nums}
+  .sale .rein{color:var(--green)}
+  .sale .you{color:var(--you)}
+  .sale .full{color:var(--you);font-weight:600}
+  .sale .x{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1;flex:none}
+  .sale .x:hover{color:var(--danger)}
+  body.is-closed .sale .x{display:none}
+  .empty{color:var(--muted);font-size:14px;padding:22px 0;text-align:center}
+
+  .totals{display:flex;gap:30px;margin:26px 0 0;padding-top:22px;border-top:1px solid var(--line)}
+  .tot{flex:1}
+  .tot .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .tot .v{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .tot.rein .v{color:var(--green)}
+  .tot.you .v{color:var(--you)}
+
+  .bucket{margin-top:26px}
+  .bucket .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+  .bucket .top .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .bucket .top .a{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .bucket .top .a b{color:var(--text);font-weight:600}
+  .bar{height:8px;background:var(--soft);border-radius:20px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1f9d6b,var(--green));border-radius:20px;transition:width .4s ease}
+  .msg{margin-top:11px;font-size:13px;line-height:1.5}
+  .msg.cover{color:var(--green)}
+  .msg.wait{color:var(--muted)}
+  .msg b{color:var(--you);font-weight:600}
+
+  footer{margin-top:38px;text-align:center;color:#3c485a;font-size:11px;letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div id="gate">
+  <h2>Caja · Relojes</h2>
+  <p>Introduce el PIN</p>
+  <input id="pinIn" type="password" inputmode="numeric" maxlength="8" autocomplete="off">
+  <div id="pinErr"></div>
+  <button onclick="checkPin()">Entrar</button>
+</div>
+
+<div class="sync" id="sync"><b>●</b> <span id="syncTxt">conectando…</span></div>
+
+<div class="wrap" id="app" style="display:none">
+  <header>
+    <div class="kicker">Carlos · caja</div>
+    <h1>Reparto de ventas · relojes</h1>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+  <div class="hint">Doble clic en una pestaña para renombrarla.</div>
+
+  <div class="closed-banner">
+    <span>Lote cerrado · guardado y bloqueado.</span>
+    <button onclick="toggleCerrado()">Reabrir lote</button>
+  </div>
+
+  <div class="config">
+    <div class="field"><span>Coste / unidad</span><div class="inp"><input id="coste" type="number" step="0.01"><em>€</em></div></div>
+    <div class="field"><span>Tu parte</span><div class="inp"><input id="tuParte" type="number" min="0" max="100"><em>%</em></div>
+      <small>Reinv. <span id="reinPct">70</span>% · tú <b id="youPct">30</b>%</small></div>
+    <div class="field"><span>Objetivo lote</span><div class="inp"><input id="objetivo" type="number" step="10"><em>€</em></div></div>
+  </div>
+
+  <div class="add">
+    <input id="ventaInput" type="number" step="0.01" placeholder="Precio de venta cobrado…" inputmode="decimal">
+    <button id="addBtn" onclick="addVenta()">Añadir</button>
+  </div>
+
+  <div class="list-head">
+    <h2>Ventas cobradas</h2>
+    <div class="acts">
+      <button class="vac" onclick="clearAll()">Vaciar ventas</button>
+      <button class="close-btn" id="closeBtn" onclick="toggleCerrado()">Cerrar lote</button>
+      <button class="del" onclick="deleteLote()">Eliminar</button>
+    </div>
+  </div>
+  <div id="salesList"></div>
+
+  <div class="totals">
+    <div class="tot rein"><div class="k">A reinversión</div><div class="v" id="totalRein">0,00 €</div></div>
+    <div class="tot you"><div class="k">Para ti</div><div class="v" id="totalYou">0,00 €</div></div>
+  </div>
+
+  <div class="bucket">
+    <div class="top"><span class="l">Cubo del próximo lote</span>
+      <span class="a"><b id="bucketNow">0,00</b> / <span id="bucketGoal">0,00</span> €</span></div>
+    <div class="bar"><i id="bucketBar"></i></div>
+    <div class="msg wait" id="bucketMsg"></div>
+  </div>
+
+  <footer>Caja de relojes · sincronizado en la nube</footer>
+</div>
+
+<script>
+  /* ====== CONFIG ====== */
+  const PIN = "0000";                                   // <-- cambia aquí tu PIN
+  const SB_URL = "https://qjufwzzpvfiaxczfstdn.supabase.co";
+  const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFqdWZ3enpwdmZpYXhjemZzdGRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDc2ODMsImV4cCI6MjA5NjkyMzY4M30.16GIxics6Q1z-Rt-QLszAlUIek4si0NgGOC2fpyqwb0";
+  const ROW_ID = "carlos";
+  /* ==================== */
+
+  const REST = SB_URL+"/rest/v1/caja";
+  const HEAD = {"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json"};
+  const fmt=n=>n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const num=n=>n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const $=id=>document.getElementById(id);
+
+  let data=null, saveTimer=null;
+
+  function setSync(state,txt){const s=$('sync');s.className='sync'+(state?' '+state:'');$('syncTxt').textContent=txt;}
+
+  function checkPin(){
+    if($('pinIn').value===PIN){ $('gate').style.display='none'; $('app').style.display='block'; boot(); }
+    else { $('pinErr').textContent='PIN incorrecto'; $('pinIn').value=''; }
+  }
+  $('pinIn').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin();});
+
+  function nuevoLote(n){return {id:'l'+Date.now()+Math.random().toString(36).slice(2,5),name:'Lote '+n,coste:78.60,tuParte:30,objetivo:850,ventas:[],closed:false};}
+
+  async function boot(){
+    setSync('saving','cargando…');
+    try{
+      const r=await fetch(REST+'?id=eq.'+ROW_ID+'&select=data',{headers:HEAD});
+      const rows=await r.json();
+      data=(rows[0]&&rows[0].data)?rows[0].data:null;
+      if(!data||!data.lotes||!data.lotes.length){data={activeId:null,lotes:[nuevoLote(1)]};data.activeId=data.lotes[0].id;}
+      data.lotes.forEach(l=>{if(l.closed===undefined)l.closed=false;});
+      if(!data.lotes.find(l=>l.id===data.activeId))data.activeId=data.lotes[0].id;
+      setSync('','guardado ✓');
+      renderTabs();renderLote();
+    }catch(e){setSync('err','sin conexión');data={activeId:null,lotes:[nuevoLote(1)]};data.activeId=data.lotes[0].id;renderTabs();renderLote();}
+  }
+
+  function save(){
+    clearTimeout(saveTimer);
+    setSync('saving','guardando…');
+    saveTimer=setTimeout(async()=>{
+      try{
+        await fetch(REST+'?id=eq.'+ROW_ID,{method:'PATCH',headers:HEAD,body:JSON.stringify({data})});
+        setSync('','guardado ✓');
+      }catch(e){setSync('err','error al guardar');}
+    },600);
+  }
+
+  const active=()=>data.lotes.find(l=>l.id===data.activeId);
+  function addLote(){const l=nuevoLote(data.lotes.length+1);data.lotes.push(l);data.activeId=l.id;save();renderTabs();renderLote();}
+  function switchLote(id){data.activeId=id;save();renderTabs();renderLote();}
+  function renameLote(id){const l=data.lotes.find(x=>x.id===id);if(!l)return;const n=prompt('Nombre del lote:',l.name);if(n&&n.trim()){l.name=n.trim();save();renderTabs();}}
+  function deleteLote(){if(data.lotes.length<=1){alert('Debe quedar al menos un lote.');return;}const l=active();if(!confirm('¿Eliminar "'+l.name+'" y sus ventas? Esto sí borra los datos.'))return;data.lotes=data.lotes.filter(x=>x.id!==l.id);data.activeId=data.lotes[0].id;save();renderTabs();renderLote();}
+  function toggleCerrado(){const l=active();l.closed=!l.closed;save();renderTabs();renderLote();}
+
+  function renderTabs(){
+    $('tabs').innerHTML=data.lotes.map(l=>
+      `<div class="tab ${l.id===data.activeId?'active':''} ${l.closed?'closed':''}" onclick="switchLote('${l.id}')" ondblclick="renameLote('${l.id}')">${l.closed?'<span class="lk">✓</span>':''}${l.name.replace(/</g,'&lt;')}</div>`
+    ).join('')+`<div class="tab add" onclick="addLote()" title="Nuevo lote">+</div>`;
+  }
+
+  function addVenta(){const l=active();if(l.closed)return;const v=parseFloat($('ventaInput').value);if(!v||v<=0){$('ventaInput').focus();return;}l.ventas.push(v);$('ventaInput').value='';$('ventaInput').focus();save();renderLote();}
+  function removeVenta(i){const l=active();if(l.closed)return;l.ventas.splice(i,1);save();renderLote();}
+  function clearAll(){const l=active();if(l.closed)return;if(l.ventas.length&&!confirm('¿Vaciar las ventas de '+l.name+'?'))return;l.ventas=[];save();renderLote();}
+
+  ['coste','tuParte','objetivo'].forEach(id=>$(id).addEventListener('input',()=>{
+    const l=active();if(l.closed)return;
+    l.coste=parseFloat($('coste').value)||0;
+    l.tuParte=Math.min(100,Math.max(0,parseFloat($('tuParte').value)||0));
+    l.objetivo=parseFloat($('objetivo').value)||0;
+    save();renderLote(false);
+  }));
+  $('ventaInput').addEventListener('keydown',e=>{if(e.key==='Enter')addVenta();});
+
+  function renderLote(syncInputs=true){
+    const l=active();
+    document.body.classList.toggle('is-closed',l.closed);
+    $('closeBtn').textContent=l.closed?'Reabrir lote':'Cerrar lote';
+    ['coste','tuParte','objetivo'].forEach(id=>$(id).disabled=l.closed);
+    $('ventaInput').disabled=l.closed;$('addBtn').disabled=l.closed;
+    if(syncInputs){$('coste').value=l.coste;$('tuParte').value=l.tuParte;$('objetivo').value=l.objetivo;}
+    const rein=(100-l.tuParte)/100, tu=l.tuParte/100;
+    $('reinPct').textContent=Math.round(rein*100);$('youPct').textContent=Math.round(tu*100);
+    $('bucketGoal').textContent=num(l.objetivo);
+    let totalRein=0,totalYou=0,bucket=0,covered=false,coverIdx=-1;
+    const rows=l.ventas.map((v,i)=>{
+      const ben=v-l.coste;let r,y,full=false;
+      if(!covered){r=l.coste+Math.max(0,ben)*rein;y=Math.max(0,ben)*tu;bucket+=r;if(l.objetivo>0&&bucket>=l.objetivo){covered=true;coverIdx=i;}}
+      else{r=0;y=v;full=true;}
+      totalRein+=r;totalYou+=y;return {v,r,y,full};
+    });
+    const list=$('salesList');
+    if(!l.ventas.length){list.innerHTML='<div class="empty">'+(l.closed?'Lote sin ventas.':'Añade tu primera venta cobrada.')+'</div>';}
+    else{list.innerHTML=rows.map((r,i)=>`
+      <div class="sale"><span class="n">${i+1}</span><span class="venta">${fmt(r.v)}</span>
+        <span class="split">${r.full?`<span class="full">100% para ti · ${fmt(r.y)}</span>`:`<span class="rein">↻ ${fmt(r.r)}</span><span class="you">tú ${fmt(r.y)}</span>`}</span>
+        <button class="x" onclick="removeVenta(${i})">×</button></div>`).join('');}
+    $('totalRein').textContent=fmt(totalRein);$('totalYou').textContent=fmt(totalYou);
+    const pct=l.objetivo>0?Math.min(100,bucket/l.objetivo*100):0;
+    $('bucketNow').textContent=num(Math.min(bucket,l.objetivo));$('bucketBar').style.width=pct+'%';
+    const m=$('bucketMsg');
+    if(l.objetivo<=0){m.className='msg wait';m.textContent='Pon un objetivo de lote para activar el aviso.';}
+    else if(covered){m.className='msg cover';m.innerHTML=`✓ Lote cubierto en la venta #${coverIdx+1}. Desde ahí, <b>cada venta es 100% tuya</b>.`;}
+    else{m.className='msg wait';m.innerHTML=`Faltan <b>${fmt(l.objetivo-bucket)}</b> para cubrir el lote y cobrar el 100%.`;}
+  }
+
+  $('pinIn').focus();
+</script>
+</body>
+</html>
